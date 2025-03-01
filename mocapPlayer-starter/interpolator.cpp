@@ -109,7 +109,55 @@ void Interpolator::Euler2Rotation(double angles[3], double R[9])
 
 void Interpolator::BezierInterpolationEuler(Motion * pInputMotion, Motion * pOutputMotion, int N)
 {
-  // students should implement this
+    int inputLength = pInputMotion->GetNumFrames(); // frames are indexed 0, ..., inputLength-1
+
+    int startKeyframe = 0;
+    while (startKeyframe + N + 1 < inputLength)
+    {
+        int endKeyframe = startKeyframe + N + 1;
+
+        Posture* startPosture = pInputMotion->GetPosture(startKeyframe);
+        Posture* endPosture = pInputMotion->GetPosture(endKeyframe);
+
+        // copy start and end keyframe
+        pOutputMotion->SetPosture(startKeyframe, *startPosture);
+        pOutputMotion->SetPosture(endKeyframe, *endPosture);
+
+        // interpolate in between
+        for (int frame = 1; frame <= N; frame++)
+        {
+            Posture interpolatedPosture;
+            double t = 1.0 * frame / (N + 1);
+
+            // interpolate root position
+            interpolatedPosture.root_pos = BezierInterpolate(t, startPosture->root_pos, endPosture->root_pos);
+
+            // interpolate bone rotations
+            for (int bone = 0; bone < MAX_BONES_IN_ASF_FILE; bone++)
+                interpolatedPosture.bone_rotation[bone] = BezierInterpolate(t, startPosture->bone_rotation[bone], endPosture->bone_rotation[bone]);
+
+            pOutputMotion->SetPosture(startKeyframe + frame, interpolatedPosture);
+        }
+
+        startKeyframe = endKeyframe;
+    }
+
+    for (int frame = startKeyframe + 1; frame < inputLength; frame++)
+        pOutputMotion->SetPosture(frame, *(pInputMotion->GetPosture(frame)));
+}
+
+vector Interpolator::BezierInterpolate(double t, vector startPoint, vector endPoint, double controlPointAlpha) {
+    double x = BezierInterpolate(t, startPoint.x(), endPoint.x(), controlPointAlpha);
+    double y = BezierInterpolate(t, startPoint.y(), endPoint.y(), controlPointAlpha);
+    double z = BezierInterpolate(t, startPoint.z(), endPoint.z(), controlPointAlpha);
+    return vector(x, y, z);
+}
+
+double Interpolator::BezierInterpolate(double t, double startPoint, double endPoint, double controlPointAlpha) {
+    double c1 = startPoint + controlPointAlpha * (endPoint - startPoint);
+    double c2 = endPoint - controlPointAlpha * (endPoint - startPoint);
+
+    return pow(1 - t, 3) * startPoint + 3 * pow(1 - t, 2) * t * c1 + 3 * (1 - t) * pow(t, 2) * c2 + pow(t, 3) * endPoint;
 }
 
 void Interpolator::LinearInterpolationQuaternion(Motion * pInputMotion, Motion * pOutputMotion, int N)

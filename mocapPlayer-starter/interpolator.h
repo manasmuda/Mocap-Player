@@ -50,6 +50,9 @@ protected:
   void Euler2Quaternion(double angles[3], Quaternion<double> & q); 
   void Quaternion2Euler(Quaternion<double> & q, double angles[3]); 
 
+  double BezierInterpolate(double t, double startPoint, double endPoint, double controlPointAlpha = 0.3);
+  vector BezierInterpolate(double t, vector start, vector end, double controlPointAlpha = 0.3);
+
   // quaternion interpolation
   Quaternion<double> Slerp(double t, Quaternion<double> & qStart, Quaternion<double> & qEnd);
   Quaternion<double> Double(Quaternion<double> p, Quaternion<double> q);
