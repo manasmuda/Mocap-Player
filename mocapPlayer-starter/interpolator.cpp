@@ -6,6 +6,19 @@
 #include "interpolator.h"
 #include "types.h"
 
+#define DEG2RAD(angle) ((angle) * M_PI / 180.0)
+
+#define MATRIX_MULTIPLY(m1,m2, rm)\
+    for(int mmrow = 0; mmrow < 3; mmrow++){\
+        for (int mmcolumn = 0; mmcolumn < 3; mmcolumn++) {\
+            rm[3*mmrow+mmcolumn] = 0;\
+            for (int mmk = 0; mmk < 3; mmk++) {\
+                float mmsum = m1[3*mmrow+mmk] * m2[3*mmk+mmcolumn];\
+                rm[3*mmrow+mmcolumn] += mmsum;\
+            }\
+        }\
+    }\
+
 Interpolator::Interpolator()
 {
 
@@ -104,7 +117,25 @@ void Interpolator::Rotation2Euler(double R[9], double angles[3])
 
 void Interpolator::Euler2Rotation(double angles[3], double R[9])
 {
-  // students should implement this
+    double x = DEG2RAD(angles[0]); // Roll (X)
+    double y = DEG2RAD(angles[1]); // Pitch (Y)
+    double z = DEG2RAD(angles[2]); // Yaw (Z)
+
+    double cx = cos(x), sx = sin(x);
+    double cy = cos(y), sy = sin(y);
+    double cz = cos(z), sz = sin(z);
+
+    R[0] = cy * cz;
+    R[1] = sx * sy * cz - cx * sz;
+    R[2] = cx * sy * cz + sx * sz;
+
+    R[3] = cy * sz;
+    R[4] = sx * sy * sz + cx * cz;
+    R[5] = cx * sy * sz - sx * cz;
+
+    R[6] = -sy;
+    R[7] = sx * cy;
+    R[8] = cx * cy;
 }
 
 void Interpolator::BezierInterpolationEuler(Motion * pInputMotion, Motion * pOutputMotion, int N)
@@ -130,11 +161,11 @@ void Interpolator::BezierInterpolationEuler(Motion * pInputMotion, Motion * pOut
             double t = 1.0 * frame / (N + 1);
 
             // interpolate root position
-            interpolatedPosture.root_pos = BezierInterpolate(t, startPosture->root_pos, endPosture->root_pos);
+            interpolatedPosture.root_pos = DeCasteljauEulerInterpolate(t, startPosture->root_pos, endPosture->root_pos);
 
             // interpolate bone rotations
             for (int bone = 0; bone < MAX_BONES_IN_ASF_FILE; bone++)
-                interpolatedPosture.bone_rotation[bone] = BezierInterpolate(t, startPosture->bone_rotation[bone], endPosture->bone_rotation[bone]);
+                interpolatedPosture.bone_rotation[bone] = DeCasteljauEulerInterpolate(t, startPosture->bone_rotation[bone], endPosture->bone_rotation[bone]);
 
             pOutputMotion->SetPosture(startKeyframe + frame, interpolatedPosture);
         }
@@ -144,20 +175,6 @@ void Interpolator::BezierInterpolationEuler(Motion * pInputMotion, Motion * pOut
 
     for (int frame = startKeyframe + 1; frame < inputLength; frame++)
         pOutputMotion->SetPosture(frame, *(pInputMotion->GetPosture(frame)));
-}
-
-vector Interpolator::BezierInterpolate(double t, vector startPoint, vector endPoint, double controlPointAlpha) {
-    double x = BezierInterpolate(t, startPoint.x(), endPoint.x(), controlPointAlpha);
-    double y = BezierInterpolate(t, startPoint.y(), endPoint.y(), controlPointAlpha);
-    double z = BezierInterpolate(t, startPoint.z(), endPoint.z(), controlPointAlpha);
-    return vector(x, y, z);
-}
-
-double Interpolator::BezierInterpolate(double t, double startPoint, double endPoint, double controlPointAlpha) {
-    double c1 = startPoint + controlPointAlpha * (endPoint - startPoint);
-    double c2 = endPoint - controlPointAlpha * (endPoint - startPoint);
-
-    return pow(1 - t, 3) * startPoint + 3 * pow(1 - t, 2) * t * c1 + 3 * (1 - t) * pow(t, 2) * c2 + pow(t, 3) * endPoint;
 }
 
 void Interpolator::LinearInterpolationQuaternion(Motion * pInputMotion, Motion * pOutputMotion, int N)
@@ -172,12 +189,16 @@ void Interpolator::BezierInterpolationQuaternion(Motion * pInputMotion, Motion *
 
 void Interpolator::Euler2Quaternion(double angles[3], Quaternion<double> & q) 
 {
-  // students should implement this
+    double R[9];
+    Euler2Rotation(angles, R);
+    q = Quaternion<double>::Matrix2Quaternion(R);
 }
 
 void Interpolator::Quaternion2Euler(Quaternion<double> & q, double angles[3]) 
 {
-  // students should implement this
+    double R[9];
+    q.Quaternion2Matrix(R);
+    Rotation2Euler(R, angles);
 }
 
 Quaternion<double> Interpolator::Slerp(double t, Quaternion<double> & qStart, Quaternion<double> & qEnd_)
@@ -194,11 +215,17 @@ Quaternion<double> Interpolator::Double(Quaternion<double> p, Quaternion<double>
   return result;
 }
 
+vector Interpolator::DeCasteljauEulerInterpolate(double t, vector startPoint, vector endPoint, double controlPointAlpha) {
+    vector c1 = startPoint + (endPoint - startPoint) * controlPointAlpha;
+    vector c2 = endPoint - (endPoint - startPoint) * controlPointAlpha;
+
+    return DeCasteljauEuler(t, startPoint, c1, c2, endPoint);
+}
+
 vector Interpolator::DeCasteljauEuler(double t, vector p0, vector p1, vector p2, vector p3)
 {
-  // students should implement this
-  vector result;
-  return result;
+   vector result =  p0 * pow(1 - t, 3) +  p1 * (3* pow(1 - t, 2) * t) +  p2 * (3 * (1 - t) * pow(t, 2)) +  p3 * pow(t, 3);
+   return result;
 }
 
 Quaternion<double> Interpolator::DeCasteljauQuaternion(double t, Quaternion<double> p0, Quaternion<double> p1, Quaternion<double> p2, Quaternion<double> p3)
