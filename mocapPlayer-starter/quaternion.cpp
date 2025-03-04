@@ -79,6 +79,14 @@ Quaternion<real> Quaternion<real>::Matrix2Quaternion(real * R)
   return q;
 }
 
+template <typename real>
+real Quaternion<real>::DotProduct(Quaternion<real> q1, Quaternion<real> q2) {
+    return q1.s * q2.s + q1.x * q2.x + q1.y * q2.y + q1.z * q2.z;
+}
+
 template Quaternion<double> Quaternion<double>::Matrix2Quaternion(double * R);
 template Quaternion<float> Quaternion<float>::Matrix2Quaternion(float * R);
+
+template double Quaternion<double>::DotProduct(Quaternion<double> q1, Quaternion<double> q2);
+template float Quaternion<float>::DotProduct(Quaternion<float> q1, Quaternion<float> q2);
 

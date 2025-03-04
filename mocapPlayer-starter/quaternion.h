@@ -82,6 +82,7 @@ public:
 
   inline Quaternion operator+ (const Quaternion q2) const; // q3 = q1+q2
   inline Quaternion operator- (const Quaternion q2) const; // q3 = q1-q2
+  inline Quaternion operator* (const real rc) const; // q3 = q1*rc
   inline Quaternion operator* (const Quaternion q2) const; // q3 = q1 * q2
   inline Quaternion operator/ (const Quaternion q2) const; // q3 = q1 / q2
 
@@ -116,6 +117,8 @@ public:
   // This implementation follows David Baraff's SIGGRAPH course notes:
   // http://www.cs.cmu.edu/~baraff/pbm/pbm.html
   static Quaternion Matrix2Quaternion(real * R);
+
+  static real DotProduct(Quaternion<real> q1, Quaternion<real> q2);
   
   // Returns the angle of rotation (in radians), and the unit rotation axis corresponding to the quaternion.
   // Assumes a unit quaternion (use Normalize() to remove any noise due to floating point errors).
@@ -261,6 +264,14 @@ inline Quaternion<real> Quaternion<real>::operator- (const Quaternion<real> q2) 
 }
 
 template <typename real>
+inline Quaternion<real> Quaternion<real>::operator* (const real rc) const
+{
+    Quaternion<real> w(s * rc, x * rc, y * rc, z * tc);
+
+    return w;
+}
+
+template <typename real>
 inline Quaternion<real> Quaternion<real>::operator* (const Quaternion<real> q2) const 
 {
   Quaternion<real> w(
@@ -271,6 +282,8 @@ inline Quaternion<real> Quaternion<real>::operator* (const Quaternion<real> q2) 
 
   return w;  
 }
+
+
 
 template <typename real>
 inline Quaternion<real> Quaternion<real>::operator/ (const Quaternion<real> q2) const

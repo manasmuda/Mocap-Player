@@ -50,8 +50,12 @@ protected:
   void Euler2Quaternion(double angles[3], Quaternion<double> & q); 
   void Quaternion2Euler(Quaternion<double> & q, double angles[3]); 
 
+  //euler interpolation
+  vector Lerp(double t, vector start, vector end);
+
   // quaternion interpolation
   Quaternion<double> Slerp(double t, Quaternion<double> & qStart, Quaternion<double> & qEnd);
+  Quaternion<double> Lerp(double t, Quaternion<double> & qStart, Quaternion<double> & qEnd);
   Quaternion<double> Double(Quaternion<double> p, Quaternion<double> q);
 
   // interpolation routines

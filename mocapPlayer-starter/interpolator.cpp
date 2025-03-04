@@ -78,11 +78,11 @@ void Interpolator::LinearInterpolationEuler(Motion * pInputMotion, Motion * pOut
       double t = 1.0 * frame / (N+1);
 
       // interpolate root position
-      interpolatedPosture.root_pos = startPosture->root_pos * (1-t) + endPosture->root_pos * t;
+      interpolatedPosture.root_pos = Lerp(t, startPosture->root_pos, endPosture->root_pos);
 
       // interpolate bone rotations
       for (int bone = 0; bone < MAX_BONES_IN_ASF_FILE; bone++)
-        interpolatedPosture.bone_rotation[bone] = startPosture->bone_rotation[bone] * (1-t) + endPosture->bone_rotation[bone] * t;
+        interpolatedPosture.bone_rotation[bone] = Lerp(t, startPosture->bone_rotation[bone], endPosture->bone_rotation[bone]);
 
       pOutputMotion->SetPosture(startKeyframe + frame, interpolatedPosture);
     }
@@ -142,30 +142,75 @@ void Interpolator::BezierInterpolationEuler(Motion * pInputMotion, Motion * pOut
 {
     int inputLength = pInputMotion->GetNumFrames(); // frames are indexed 0, ..., inputLength-1
 
-    int startKeyframe = 0;
+    int startKeyframe = 0, endKeyframe = 0;
+    Posture *startPosture, *endPosture;
+    Posture* prevPosture, * nextPosture;
+
+    vector c1, c2, an, bn;
+    vector pp, sp, ep, np;
+
+#define LerpAvgFuturePoint(stp, enp, fip)\
+    Lerp(0.5, Lerp(2.0, stp, enp), fip)\
+
+
+#define CalculateSecondControlPoint(sp, ep, np)\
+    bn = LerpAvgFuturePoint(sp, ep, np);\
+    c2 = Lerp(-1 / 3, ep, bn);
+
+#define DeCasteljauInterpolate(t, interpolatedPosture, propertyName_)\
+    sp = startPosture->propertyName_;\
+    ep = endPosture->propertyName_;\
+    if (prevPosture != nullptr) {\
+        pp = prevPosture->propertyName_;\
+        an = LerpAvgFuturePoint(pp, sp, ep);\
+        c1 = Lerp(1 / 3, sp, an);\
+    } else {\
+        c1 = Lerp(1 / 3, sp, Lerp(2.0, nextPosture->propertyName_, ep));\
+    }\
+    if (nextPosture != nullptr) {\
+        np = nextPosture->propertyName_; \
+        bn = LerpAvgFuturePoint(sp, ep, np); \
+        c2 = Lerp(1 / 3, ep, bn); \
+    } else { \
+        c2 = Lerp(1 / 3, ep, Lerp(2.0, prevPosture->propertyName_, sp)); \
+    }\
+    interpolatedPosture.propertyName_ = DeCasteljauEuler(t, sp, c1, c2, ep);\
+
     while (startKeyframe + N + 1 < inputLength)
     {
-        int endKeyframe = startKeyframe + N + 1;
+        endKeyframe = startKeyframe + N + 1;
 
-        Posture* startPosture = pInputMotion->GetPosture(startKeyframe);
-        Posture* endPosture = pInputMotion->GetPosture(endKeyframe);
+        startPosture = pInputMotion->GetPosture(startKeyframe);
+        endPosture = pInputMotion->GetPosture(endKeyframe);
 
-        // copy start and end keyframe
+        if (startKeyframe > 0) {
+            prevPosture = pInputMotion->GetPosture(startKeyframe - 1);
+        }
+        else
+        {
+            prevPosture = nullptr;
+        }
+
+        if (endKeyframe < inputLength - 1) {
+            nextPosture = pInputMotion->GetPosture(endKeyframe + 1);
+        }
+        else {
+            nextPosture = nullptr;
+        }
+
         pOutputMotion->SetPosture(startKeyframe, *startPosture);
         pOutputMotion->SetPosture(endKeyframe, *endPosture);
 
-        // interpolate in between
         for (int frame = 1; frame <= N; frame++)
         {
             Posture interpolatedPosture;
             double t = 1.0 * frame / (N + 1);
 
-            // interpolate root position
-            interpolatedPosture.root_pos = DeCasteljauEulerInterpolate(t, startPosture->root_pos, endPosture->root_pos);
+            DeCasteljauInterpolate(t, interpolatedPosture, root_pos)
 
-            // interpolate bone rotations
-            for (int bone = 0; bone < MAX_BONES_IN_ASF_FILE; bone++)
-                interpolatedPosture.bone_rotation[bone] = DeCasteljauEulerInterpolate(t, startPosture->bone_rotation[bone], endPosture->bone_rotation[bone]);
+            for (int bone = 0; bone < MAX_BONES_IN_ASF_FILE; bone++) {
+                DeCasteljauInterpolate(t, interpolatedPosture, bone_rotation[bone])
+            }
 
             pOutputMotion->SetPosture(startKeyframe + frame, interpolatedPosture);
         }
@@ -180,6 +225,7 @@ void Interpolator::BezierInterpolationEuler(Motion * pInputMotion, Motion * pOut
 void Interpolator::LinearInterpolationQuaternion(Motion * pInputMotion, Motion * pOutputMotion, int N)
 {
   // students should implement this
+
 }
 
 void Interpolator::BezierInterpolationQuaternion(Motion * pInputMotion, Motion * pOutputMotion, int N)
@@ -201,10 +247,41 @@ void Interpolator::Quaternion2Euler(Quaternion<double> & q, double angles[3])
     Rotation2Euler(R, angles);
 }
 
+vector Interpolator::Lerp(double t, vector start, vector end) {
+    return start * (1 - t) + end * t;
+}
+
+Quaternion<double> Interpolator::Lerp(double t, Quaternion<double>& qStart, Quaternion<double>& qEnd_) {
+    Quaternion<double> result;
+
+    double cosA = Quaternion<double>::DotProduct(qStart, qEnd_);
+    if (cosA < 0) {
+        qEnd_ = qEnd_ * -1;
+        cosA *= -1;
+    }
+
+    result = (1 - t) * qStart + t * qEnd_;
+    result.Normalize();
+
+    return result;
+}
+
 Quaternion<double> Interpolator::Slerp(double t, Quaternion<double> & qStart, Quaternion<double> & qEnd_)
 {
-  // students should implement this
   Quaternion<double> result;
+
+  double cosA = Quaternion<double>::DotProduct(qStart, qEnd_);
+  if (cosA < 0) {
+      qEnd_ = qEnd_ * -1;
+      cosA *= -1;
+  }
+
+  if (cosA > 0.999f) {
+      return Lerp(t, qStart, qEnd_);
+  }
+
+
+
   return result;
 }
 
