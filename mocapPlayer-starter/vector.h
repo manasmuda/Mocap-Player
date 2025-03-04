@@ -49,6 +49,7 @@ public:
   vector() {}
   vector( double x, double y, double z ) { p[0]=x; p[1]=y; p[2]=z; }
   vector( double a[3] ) { p[0]=a[0]; p[1]=a[1]; p[2]=a[2]; }
+  vector(const vector& v) { p[0] = v.p[0]; p[1] = v.p[1]; p[2] = v.p[2]; }
   ~vector() {};
 
   // inquiry functions

@@ -73,6 +73,8 @@ public:
   // Angle is in radians; unitAxis must be a unit 3D vector.
   inline Quaternion(real angle, real unitAxis[3]); 
 
+  inline Quaternion(const Quaternion& q);
+
   inline void Set(real s, real x, real y, real z); // sets quaternion to the new value
 
   inline real Gets() const;
@@ -170,6 +172,14 @@ inline Quaternion<real>::Quaternion(real s_, real x_, real y_, real z_)
   x = x_;
   y = y_;
   z = z_;
+}
+
+template <typename real>
+inline Quaternion<real>::Quaternion(const Quaternion& q) {
+    s = q.s;
+    x = q.x;
+    y = q.y;
+    z = q.z;
 }
 
 template <typename real>

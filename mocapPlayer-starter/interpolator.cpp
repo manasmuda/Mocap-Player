@@ -94,32 +94,34 @@ void Interpolator::LinearInterpolationEuler(Motion * pInputMotion, Motion * pOut
     pOutputMotion->SetPosture(frame, *(pInputMotion->GetPosture(frame)));
 }
 
-void Interpolator::Rotation2Euler(double R[9], double angles[3])
+vector Interpolator::Rotation2Euler(double R[9])
 {
+    vector ea;
   double cy = sqrt(R[0]*R[0] + R[3]*R[3]);
 
   if (cy > 16*DBL_EPSILON) 
   {
-    angles[0] = atan2(R[7], R[8]);
-    angles[1] = atan2(-R[6], cy);
-    angles[2] = atan2(R[3], R[0]);
+    ea.p[0] = atan2(R[7], R[8]);
+    ea.p[1] = atan2(-R[6], cy);
+    ea.p[2] = atan2(R[3], R[0]);
   } 
   else 
   {
-    angles[0] = atan2(-R[5], R[4]);
-    angles[1] = atan2(-R[6], cy);
-    angles[2] = 0;
+      ea.p[0] = atan2(-R[5], R[4]);
+      ea.p[1] = atan2(-R[6], cy);
+      ea.p[2] = 0;
   }
 
   for(int i=0; i<3; i++)
-    angles[i] *= 180 / M_PI;
+      ea.p[i] *= 180 / M_PI;
+  return ea;
 }
 
-void Interpolator::Euler2Rotation(double angles[3], double R[9])
+void Interpolator::Euler2Rotation(vector angles, double R[9])
 {
-    double x = DEG2RAD(angles[0]); // Roll (X)
-    double y = DEG2RAD(angles[1]); // Pitch (Y)
-    double z = DEG2RAD(angles[2]); // Yaw (Z)
+    double x = DEG2RAD(angles.p[0]); // Roll (X)
+    double y = DEG2RAD(angles.p[1]); // Pitch (Y)
+    double z = DEG2RAD(angles.p[2]); // Yaw (Z)
 
     double cx = cos(x), sx = sin(x);
     double cy = cos(y), sy = sin(y);
@@ -224,8 +226,38 @@ void Interpolator::BezierInterpolationEuler(Motion * pInputMotion, Motion * pOut
 
 void Interpolator::LinearInterpolationQuaternion(Motion * pInputMotion, Motion * pOutputMotion, int N)
 {
-  // students should implement this
+    int inputLength = pInputMotion->GetNumFrames(); // frames are indexed 0, ..., inputLength-1
 
+    int startKeyframe = 0;
+    while (startKeyframe + N + 1 < inputLength)
+    {
+        int endKeyframe = startKeyframe + N + 1;
+
+        Posture* startPosture = pInputMotion->GetPosture(startKeyframe);
+        Posture* endPosture = pInputMotion->GetPosture(endKeyframe);
+
+        pOutputMotion->SetPosture(startKeyframe, *startPosture);
+        pOutputMotion->SetPosture(endKeyframe, *endPosture);
+
+        for (int frame = 1; frame <= N; frame++)
+        {
+            Posture interpolatedPosture;
+            double t = 1.0 * frame / (N + 1);
+
+            interpolatedPosture.root_pos = Quaternion2Euler(Slerp(t, Euler2Quaternion(startPosture->root_pos), Euler2Quaternion(endPosture->root_pos)));
+
+            // interpolate bone rotations
+            for (int bone = 0; bone < MAX_BONES_IN_ASF_FILE; bone++)
+                interpolatedPosture.bone_rotation[bone] = Quaternion2Euler(Slerp(t, Euler2Quaternion(startPosture->bone_rotation[bone]), Euler2Quaternion(endPosture->bone_rotation[bone])));
+
+            pOutputMotion->SetPosture(startKeyframe + frame, interpolatedPosture);
+        }
+
+        startKeyframe = endKeyframe;
+    }
+
+    for (int frame = startKeyframe + 1; frame < inputLength; frame++)
+        pOutputMotion->SetPosture(frame, *(pInputMotion->GetPosture(frame)));
 }
 
 void Interpolator::BezierInterpolationQuaternion(Motion * pInputMotion, Motion * pOutputMotion, int N)
@@ -233,18 +265,19 @@ void Interpolator::BezierInterpolationQuaternion(Motion * pInputMotion, Motion *
   // students should implement this
 }
 
-void Interpolator::Euler2Quaternion(double angles[3], Quaternion<double> & q) 
+Quaternion<double> Interpolator::Euler2Quaternion(vector angles)
 {
     double R[9];
     Euler2Rotation(angles, R);
-    q = Quaternion<double>::Matrix2Quaternion(R);
+    Quaternion<double> q = Quaternion<double>::Matrix2Quaternion(R);
+    return q;
 }
 
-void Interpolator::Quaternion2Euler(Quaternion<double> & q, double angles[3]) 
+vector Interpolator::Quaternion2Euler(Quaternion<double> q)
 {
     double R[9];
     q.Quaternion2Matrix(R);
-    Rotation2Euler(R, angles);
+    return Rotation2Euler(R);
 }
 
 vector Interpolator::Lerp(double t, vector start, vector end) {
@@ -280,8 +313,12 @@ Quaternion<double> Interpolator::Slerp(double t, Quaternion<double> & qStart, Qu
       return Lerp(t, qStart, qEnd_);
   }
 
+  double sinA = sqrt(1 - cosA * cosA);
+  double A = atan2(sinA, cosA);
+  double oneBysinA = 1 / sinA;
 
-
+  result = sinf((1.0f - t) * A) * oneBysinA * qStart + sinf(t * A) * oneBysinA * qEnd_;
+  result.Normalize();//Just added in case of floating point errors
   return result;
 }
 
