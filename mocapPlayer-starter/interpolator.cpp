@@ -154,11 +154,6 @@ void Interpolator::BezierInterpolationEuler(Motion * pInputMotion, Motion * pOut
 #define LerpAvgFuturePoint(stp, enp, fip)\
     Lerp(0.5, Lerp(2.0, stp, enp), fip)\
 
-
-#define CalculateSecondControlPoint(sp, ep, np)\
-    bn = LerpAvgFuturePoint(sp, ep, np);\
-    c2 = Lerp(-1 / 3, ep, bn);
-
 #define DeCasteljauInterpolate(t, interpolatedPosture, propertyName_)\
     sp = startPosture->propertyName_;\
     ep = endPosture->propertyName_;\
@@ -262,7 +257,82 @@ void Interpolator::LinearInterpolationQuaternion(Motion * pInputMotion, Motion *
 
 void Interpolator::BezierInterpolationQuaternion(Motion * pInputMotion, Motion * pOutputMotion, int N)
 {
-  // students should implement this
+    int inputLength = pInputMotion->GetNumFrames(); // frames are indexed 0, ..., inputLength-1
+
+    int startKeyframe = 0, endKeyframe = 0;
+    Posture* startPosture, * endPosture;
+    Posture* prevPosture, * nextPosture;
+
+    Quaternion<double> c1, c2, an, bn;
+    Quaternion<double> pp, sp, ep, np;
+
+#define SlerpAvgFuturePoint(stp, enp, fip)\
+    Slerp(0.5, Slerp(2.0, stp, enp), fip)\
+
+
+#define DeCasteljauInterpolate(t, interpolatedPosture, propertyName_)\
+    sp = Euler2Quaternion(startPosture->propertyName_);\
+    ep = Euler2Quaternion(endPosture->propertyName_);\
+    if (prevPosture != nullptr) {\
+        pp = Euler2Quaternion(prevPosture->propertyName_);\
+        an = SlerpAvgFuturePoint(pp, sp, ep);\
+        c1 = Slerp(1 / 3, sp, an);\
+    } else {\
+        c1 = Slerp(1 / 3, sp, Slerp(2.0, Euler2Quaternion(nextPosture->propertyName_), ep));\
+    }\
+    if (nextPosture != nullptr) {\
+        np = Euler2Quaternion(nextPosture->propertyName_); \
+        bn = SlerpAvgFuturePoint(sp, ep, np); \
+        c2 = Slerp(1 / 3, ep, bn); \
+    } else { \
+        c2 = Slerp(1 / 3, ep, Slerp(2.0, Euler2Quaternion(prevPosture->propertyName_), sp)); \
+    }\
+    interpolatedPosture.propertyName_ = Quaternion2Euler(DeCasteljauQuaternion(t, sp, c1, c2, ep));\
+
+    while (startKeyframe + N + 1 < inputLength)
+    {
+        endKeyframe = startKeyframe + N + 1;
+
+        startPosture = pInputMotion->GetPosture(startKeyframe);
+        endPosture = pInputMotion->GetPosture(endKeyframe);
+
+        if (startKeyframe > 0) {
+            prevPosture = pInputMotion->GetPosture(startKeyframe - 1);
+        }
+        else
+        {
+            prevPosture = nullptr;
+        }
+
+        if (endKeyframe < inputLength - 1) {
+            nextPosture = pInputMotion->GetPosture(endKeyframe + 1);
+        }
+        else {
+            nextPosture = nullptr;
+        }
+
+        pOutputMotion->SetPosture(startKeyframe, *startPosture);
+        pOutputMotion->SetPosture(endKeyframe, *endPosture);
+
+        for (int frame = 1; frame <= N; frame++)
+        {
+            Posture interpolatedPosture;
+            double t = 1.0 * frame / (N + 1);
+
+            DeCasteljauInterpolate(t, interpolatedPosture, root_pos)
+
+                for (int bone = 0; bone < MAX_BONES_IN_ASF_FILE; bone++) {
+                    DeCasteljauInterpolate(t, interpolatedPosture, bone_rotation[bone])
+                }
+
+            pOutputMotion->SetPosture(startKeyframe + frame, interpolatedPosture);
+        }
+
+        startKeyframe = endKeyframe;
+    }
+
+    for (int frame = startKeyframe + 1; frame < inputLength; frame++)
+        pOutputMotion->SetPosture(frame, *(pInputMotion->GetPosture(frame)));
 }
 
 Quaternion<double> Interpolator::Euler2Quaternion(vector angles)
@@ -324,7 +394,6 @@ Quaternion<double> Interpolator::Slerp(double t, Quaternion<double> & qStart, Qu
 
 Quaternion<double> Interpolator::Double(Quaternion<double> p, Quaternion<double> q)
 {
-  // students should implement this
   Quaternion<double> result;
   return result;
 }
@@ -344,8 +413,17 @@ vector Interpolator::DeCasteljauEuler(double t, vector p0, vector p1, vector p2,
 
 Quaternion<double> Interpolator::DeCasteljauQuaternion(double t, Quaternion<double> p0, Quaternion<double> p1, Quaternion<double> p2, Quaternion<double> p3)
 {
-  // students should implement this
   Quaternion<double> result;
+
+  Quaternion<double> q0 = Slerp(t, p0, p1);
+  Quaternion<double> q1 = Slerp(t, p1, p2);
+  Quaternion<double> q2 = Slerp(t, p2, p3);
+
+  Quaternion<double> r0 = Slerp(t, q0, q1);
+  Quaternion<double> r1 = Slerp(t, q1, q2);
+
+  result = Slerp(t, r0, r1);
+
   return result;
 }
 

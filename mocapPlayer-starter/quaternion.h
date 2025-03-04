@@ -276,7 +276,7 @@ inline Quaternion<real> Quaternion<real>::operator- (const Quaternion<real> q2) 
 template <typename real>
 inline Quaternion<real> Quaternion<real>::operator* (const real rc) const
 {
-    Quaternion<real> w(s * rc, x * rc, y * rc, z * tc);
+    Quaternion<real> w(s * rc, x * rc, y * rc, z * rc);
 
     return w;
 }
