@@ -22,8 +22,9 @@ if len(sys.argv) >=6:
 
 data = pd.read_csv(csv_file)
 
-plt.figure(figsize=(8, 5))
-plt.plot(data['Frame'], data['Y1'], marker='o', linestyle='-', color='r', label=label1, markersize=2) 
+plt.figure(figsize=(10, 5))
+plt.plot(data['Frame'], data['OY'], marker='o', linestyle='-', color='r', label="Original Motion", markersize=2) 
+plt.plot(data['Frame'], data['Y1'], marker='o', linestyle='-', color='g', label=label1, markersize=2) 
 plt.plot(data['Frame'], data['Y2'], marker='o', linestyle='-', color='b', label=label2, markersize=2)
 
 plt.xlabel("Frame")

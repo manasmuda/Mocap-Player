@@ -5,7 +5,7 @@
 #include "skeleton.h"
 #include "motion.h"
 
-void createGraphFile(Motion* firstMotion, Motion* secondMotion, int startFrame, int endFrame, int jointId, int axisId, const std::string& filename) {
+void createGraphFile(Motion* orgMotion, Motion* firstMotion, Motion* secondMotion, int startFrame, int endFrame, int jointId, int axisId, const std::string& filename) {
     std::ofstream file(filename);
 
     if (!file) {
@@ -13,16 +13,18 @@ void createGraphFile(Motion* firstMotion, Motion* secondMotion, int startFrame, 
         exit(1);
     }
 
-    file << "Frame," << "Y1,Y2\n";
+    file << "Frame," << "OY,Y1,Y2\n";
 
     for (int i = startFrame; i <= endFrame; i++) {
+        Posture* orgPosture = orgMotion->GetPosture(i);
         Posture* firstPosture = firstMotion->GetPosture(i);
         Posture* secondPosture = secondMotion->GetPosture(i);
 
+        double oy = orgPosture->bone_rotation[jointId].p[axisId];
         double y1 = firstPosture->bone_rotation[jointId].p[axisId];
         double y2 = secondPosture->bone_rotation[jointId].p[axisId];
 
-        file << i << "," << y1 << "," << y2 << "\n";
+        file << i << "," << oy << "," << y1 << "," << y2 << "\n";
     }
 
     file.close();
@@ -33,7 +35,7 @@ void createGraphFile(Motion* firstMotion, Motion* secondMotion, int startFrame, 
 
 int main(int argc, char** argv)
 {
-    if (argc != 9)
+    if (argc < 9)
     {
         printf("Interpolates motion capture data.");
         printf("Usage: %s <input skeleton file> <First input motion capture file> <Second input motion capture file> <joint name> <Rotation Axis> <start frame> <end frame> <output file name>\n", argv[0]);
@@ -43,15 +45,25 @@ int main(int argc, char** argv)
     }
 
     char* inputSkeletonFile = argv[1];
-    char* firstInputMotionCaptureFile = argv[2];
-    char* secondInputMotionCaptureFile = argv[3];
-    char* jointName = argv[4];
-    char* rotationAxisString = argv[5];
-    char* startFrameString = argv[6];
-    char* endFrameString = argv[7];
-    char* outputFileNameString = argv[8];
+    char* orgInputMotionCaptureFile = argv[2];
+    char* firstInputMotionCaptureFile = argv[3];
+    char* secondInputMotionCaptureFile = argv[4];
+    char* jointName = argv[5];
+    char* rotationAxisString = argv[6];
+    char* startFrameString = argv[7];
+    char* endFrameString = argv[8];
+    char* outputFileNameString = argv[9];
+
+    char* interpolation1 = nullptr;
+    char* interpolation2 = nullptr;
+
+    if (argc >= 11) {
+        interpolation1 = argv[10];
+        interpolation2 = argv[11];
+    }
     
     Skeleton* pSkeleton = NULL;	// skeleton as read from an ASF file (input)
+    Motion* pOrgInputMotion = NULL; // motion as read from an AMC file (input)
     Motion* pFirstInputMotion = NULL; // motion as read from an AMC file (input)
     Motion* pSecondInputMotion = NULL; // motion as read from an AMC file (input)
 
@@ -63,6 +75,17 @@ int main(int argc, char** argv)
     catch (int exceptionCode)
     {
         printf("Error: failed to load skeleton from %s. Code: %d\n", inputSkeletonFile, exceptionCode);
+        exit(1);
+    }
+
+    printf("Loading input motion from %s...\n", orgInputMotionCaptureFile);
+    try
+    {
+        pOrgInputMotion = new Motion(orgInputMotionCaptureFile, MOCAP_SCALE, pSkeleton);
+    }
+    catch (int exceptionCode)
+    {
+        printf("Error: failed to load motion from %s. Code: %d\n", orgInputMotionCaptureFile, exceptionCode);
         exit(1);
     }
 
@@ -123,10 +146,18 @@ int main(int argc, char** argv)
    
     std::string outputCSVFileName = std::string(outputFileNameString) + ".csv";
     printf("Output File=%s\n", outputCSVFileName.c_str());
-    
-    createGraphFile(pFirstInputMotion, pSecondInputMotion, startFrame, endFrame, jointId, rotationAxis, outputCSVFileName);
 
-    std::string command = "python plot_graph.py "+ outputCSVFileName;
+    std::string interpolationName1 = "Interpolation-1";
+    std::string interpolationName2 = "Interpolation-2";
+
+    if (interpolation1 != nullptr && interpolation2!=nullptr) {
+        interpolationName1 = std::string(interpolation1);
+        interpolationName2 = std::string(interpolation2);
+    }
+    
+    createGraphFile(pOrgInputMotion, pFirstInputMotion, pSecondInputMotion, startFrame, endFrame, jointId, rotationAxis, outputCSVFileName);
+
+    std::string command = "python plot_graph.py "+ outputCSVFileName + " "+ interpolationName1 + " "+interpolationName2 + " " + std::string(jointName) + " " + rotationAxisString[0];
 
     int result = system(command.c_str());
 
