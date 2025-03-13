@@ -89,5 +89,8 @@
     <ClInclude Include="..\..\..\mocapPlayer-starter\vector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\mocapPlayer-starter\StringUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

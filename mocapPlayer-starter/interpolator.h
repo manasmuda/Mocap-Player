@@ -64,6 +64,12 @@ protected:
   void LinearInterpolationQuaternion(Motion * pInputMotion, Motion * pOutputMotion, int N);
   void BezierInterpolationQuaternion(Motion * pInputMotion, Motion * pOutputMotion, int N);
 
+  // Key Frame Interpolate Routines
+  void KeyFrameLinearInterpolationEuler(Motion* pInputMotion, Motion* pOutputMotion);
+  void KeyFrameBezierInterpolationEuler(Motion* pInputMotion, Motion* pOutputMotion);
+  void KeyFrameLinearInterpolationQuaternion(Motion* pInputMotion, Motion* pOutputMotion);
+  void KeyFrameBezierInterpolationQuaternion(Motion* pInputMotion, Motion* pOutputMotion);
+
   // Bezier spline evaluation
   vector DeCasteljauEulerInterpolate(double t, vector start, vector end, double controlPointAlpha = 0.3);
   vector DeCasteljauEuler(double t, vector p0, vector p1, vector p2, vector p3); // evaluate Bezier spline at t, using DeCasteljau construction, vector version

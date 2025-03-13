@@ -28,6 +28,7 @@
     <ClInclude Include="..\..\..\mocapPlayer-starter\posture.h" />
     <ClInclude Include="..\..\..\mocapPlayer-starter\quaternion.h" />
     <ClInclude Include="..\..\..\mocapPlayer-starter\skeleton.h" />
+    <ClInclude Include="..\..\..\mocapPlayer-starter\StringUtils.h" />
     <ClInclude Include="..\..\..\mocapPlayer-starter\transform.h" />
     <ClInclude Include="..\..\..\mocapPlayer-starter\types.h" />
     <ClInclude Include="..\..\..\mocapPlayer-starter\vector.h" />

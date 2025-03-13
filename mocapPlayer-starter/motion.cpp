@@ -15,6 +15,8 @@ Revision 3 - Jernej Barbic and Yili Zhao, Feb, 2012
 #include "motion.h"
 #include "vector.h"
 
+#include "StringUtils.h"
+
 Motion::Motion(int numFrames_, Skeleton * pSkeleton_)
 {
   pSkeleton = pSkeleton_;
@@ -50,10 +52,14 @@ void Motion::SetPosturesToDefault()
   for (int frame = 0; frame<m_NumFrames; frame++)
   {
     //set root position to (0,0,0)
+    m_pPostures[frame].defaultPos = true;
     m_pPostures[frame].root_pos.setValue(0.0, 0.0, 0.0);
+    m_pPostures[frame].default_root_pos = true;
     //set each bone orientation to (0,0,0)
-    for (int j = 0; j < MAX_BONES_IN_ASF_FILE; j++)
-      m_pPostures[frame].bone_rotation[j].setValue(0.0, 0.0, 0.0);
+    for (int j = 0; j < MAX_BONES_IN_ASF_FILE; j++) {
+        m_pPostures[frame].bone_rotation[j].setValue(0.0, 0.0, 0.0);
+        m_pPostures[frame].default_bone_placements[j] = true;
+    }
 
   }
 }
@@ -94,29 +100,36 @@ int Motion::readAMCfile(char* name, double scale)
   if( file.fail() ) 
     return -1;
 
-  int n=0;
   char str[2048];
+
+  int highestFrame = 0;
 
   // count the number of lines
   while(!file.eof())  
   {
     file.getline(str, 2048);
     if(file.eof()) break;
-    //We do not want to count empty lines
-    if (strcmp(str, "") != 0)
-      n++;
+
+    int newFrame = 0;
+    if (isInteger(str, newFrame)) {
+        if (newFrame > highestFrame) {
+            if (newFrame - highestFrame > 1) {
+                printf("Missing Frames between %d-%d\n", highestFrame, newFrame);
+            }
+            highestFrame = newFrame;
+        }
+    }
   }
+
+  printf("Highest Frame: %d\n", highestFrame);
 
   file.close();
 
   //Compute number of frames. 
   //Subtract 3 to  ignore the header
   //There are (NUM_BONES_IN_ASF_FILE - 2) moving bones and 2 dummy bones (lhipjoint and rhipjoint)
-  int numbones = pSkeleton->numBonesInSkel(bone[0]);
-  int movbones = pSkeleton->movBonesInSkel(bone[0]);
-  n = (n-3)/((movbones) + 1);   
 
-  m_NumFrames = n;
+  m_NumFrames = highestFrame;
 
   //Allocate memory for state vector
   m_pPostures = new Posture[m_NumFrames]; 
@@ -138,75 +151,86 @@ int Motion::readAMCfile(char* name, double scale)
       break;
   }
 
-  for(int i=0; i<m_NumFrames; i++)
-  {
-    //read frame number
-    int frame_num;
-    file >> frame_num;
+  if (!file.eof()) {
 
-    //There are (NUM_BONES_IN_ASF_FILE - 2) movable bones and 2 dummy bones (lhipjoint and rhipjoint)
-    for(int j=0; j<movbones; j++)
-    {
-      //read bone name
-      file >> str;
+      int frame_num;
+      file >> frame_num;
 
-      //fine the bone index corresponding to the bone name
-      int bone_idx; 
-      for( bone_idx = 0; bone_idx < numbones; bone_idx++ )
-        if( strcmp( str, pSkeleton->idx2name(bone_idx) ) == 0 ) 
-          break;
-
-      //init rotation angles for this bone to (0, 0, 0)
-      m_pPostures[i].bone_rotation[bone_idx].setValue(0.0, 0.0, 0.0);
-
-      for(int x = 0; x < bone[bone_idx].dof; x++)
+      while (!file.eof())
       {
-        double tmp;
-        file >> tmp;
-        //	printf("%d %f\n",bone[bone_idx].dofo[x],tmp);
-        switch (bone[bone_idx].dofo[x]) 
-        {
-        case 0:
-          printf("FATAL ERROR in bone %d not found %d\n",bone_idx,x);
-          x = bone[bone_idx].dof;
-          break;
-        case 1:
-          m_pPostures[i].bone_rotation[bone_idx].p[0] = tmp;
-          break;
-        case 2:
-          m_pPostures[i].bone_rotation[bone_idx].p[1] = tmp;
-          break;
-        case 3:
-          m_pPostures[i].bone_rotation[bone_idx].p[2] = tmp;
-          break;
-        case 4:
-          m_pPostures[i].bone_translation[bone_idx].p[0] = tmp * scale;
-          break;
-        case 5:
-          m_pPostures[i].bone_translation[bone_idx].p[1] = tmp * scale;
-          break;
-        case 6:
-          m_pPostures[i].bone_translation[bone_idx].p[2] = tmp * scale;
-          break;
-        case 7:
-          m_pPostures[i].bone_length[bone_idx].p[0] = tmp;// * scale;
-          break;
-        }
-      }
-      if( strcmp( str, "root" ) == 0 ) 
-      {
-        m_pPostures[i].root_pos.p[0] = m_pPostures[i].bone_translation[0].p[0];// * scale;
-        m_pPostures[i].root_pos.p[1] = m_pPostures[i].bone_translation[0].p[1];// * scale;
-        m_pPostures[i].root_pos.p[2] = m_pPostures[i].bone_translation[0].p[2];// * scale;
-      }
+          int i = frame_num - 1;
 
-      // read joint angles, including root orientation
-    }
+          //There are (NUM_BONES_IN_ASF_FILE - 2) movable bones and 2 dummy bones (lhipjoint and rhipjoint)
+          while(!file.eof())
+          {
+              //read bone name
+              file >> str;
+
+              int tempNum;
+              if (isInteger(str, tempNum)) {
+                  frame_num = tempNum;
+                  break;
+              }
+
+              //fine the bone index corresponding to the bone name
+              int bone_idx = pSkeleton->name2idx(str);
+
+              //init rotation angles for this bone to (0, 0, 0)
+              m_pPostures[i].bone_rotation[bone_idx].setValue(0.0, 0.0, 0.0);
+
+              m_pPostures[i].default_bone_placements[bone_idx] = false;
+
+              for (int x = 0; x < bone[bone_idx].dof; x++)
+              {
+                  double tmp;
+                  file >> tmp;
+                  //	printf("%d %f\n",bone[bone_idx].dofo[x],tmp);
+                  switch (bone[bone_idx].dofo[x])
+                  {
+                  case 0:
+                      printf("FATAL ERROR in bone %d not found %d\n", bone_idx, x);
+                      x = bone[bone_idx].dof;
+                      break;
+                  case 1:
+                      m_pPostures[i].bone_rotation[bone_idx].p[0] = tmp;
+                      break;
+                  case 2:
+                      m_pPostures[i].bone_rotation[bone_idx].p[1] = tmp;
+                      break;
+                  case 3:
+                      m_pPostures[i].bone_rotation[bone_idx].p[2] = tmp;
+                      break;
+                  case 4:
+                      m_pPostures[i].bone_translation[bone_idx].p[0] = tmp * scale;
+                      break;
+                  case 5:
+                      m_pPostures[i].bone_translation[bone_idx].p[1] = tmp * scale;
+                      break;
+                  case 6:
+                      m_pPostures[i].bone_translation[bone_idx].p[2] = tmp * scale;
+                      break;
+                  case 7:
+                      m_pPostures[i].bone_length[bone_idx].p[0] = tmp;// * scale;
+                      break;
+                  }
+              }
+              if (strcmp(str, "root") == 0)
+              {
+                  m_pPostures[i].root_pos.p[0] = m_pPostures[i].bone_translation[0].p[0];// * scale;
+                  m_pPostures[i].root_pos.p[1] = m_pPostures[i].bone_translation[0].p[1];// * scale;
+                  m_pPostures[i].root_pos.p[2] = m_pPostures[i].bone_translation[0].p[2];// * scale;
+                  m_pPostures[i].default_root_pos = false;
+              }
+              m_pPostures[i].defaultPos = false;
+
+              // read joint angles, including root orientation
+          }
+      }
   }
 
   file.close();
-  printf("%d samples in '%s' are read.\n", n, name);
-  return n;
+  printf("%d samples in '%s' are read.\n", m_NumFrames, name);
+  return m_NumFrames;
 }
 
 int Motion::writeAMCfile(char * filename, double scale, int forceAllJointsBe3DOF)

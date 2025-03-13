@@ -66,6 +66,8 @@ int Skeleton::name2idx(char *name)
 {
   int i=0;
   while(strcmp(m_pBoneList[i].name, name) != 0 && i++ < NUM_BONES_IN_ASF_FILE);
+  if (i >= NUM_BONES_IN_ASF_FILE)
+      return -1;
   return m_pBoneList[i].idx;
 }
 
