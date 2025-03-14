@@ -458,8 +458,21 @@ void Interpolator::KeyFrameBezierInterpolationEuler(Motion* pInputMotion, Motion
             break;\
         }\
         int N = endFrame - startFrame - 1;\
-        Posture* startPosture = pInputMotion->GetPosture(startFrame);\
-        Posture* endPosture = pInputMotion->GetPosture(endFrame);\
+        startPosture = pInputMotion->GetPosture(startFrame);\
+        endPosture = pInputMotion->GetPosture(endFrame);\
+        if (startFrame > 0) {\
+            prevPosture = pInputMotion->GetPosture(startFrame - 1);\
+        }\
+        else\
+        {\
+            prevPosture = nullptr;\
+        }\
+        if (endFrame < inputLength - 1) {\
+            nextPosture = pInputMotion->GetPosture(endFrame + 1);\
+        }\
+        else {\
+            nextPosture = nullptr;\
+        }\
         Posture* startOutputPosture = pOutputMotion->GetPosture(startFrame);\
         Posture* endOutputPosture = pOutputMotion->GetPosture(endFrame);\
         startOutputPosture->propertyName_ = startPosture->propertyName_;\
@@ -590,8 +603,21 @@ void Interpolator::KeyFrameBezierInterpolationQuaternion(Motion* pInputMotion, M
             break;\
         }\
         int N = endFrame - startFrame - 1;\
-        Posture* startPosture = pInputMotion->GetPosture(startFrame);\
-        Posture* endPosture = pInputMotion->GetPosture(endFrame);\
+        startPosture = pInputMotion->GetPosture(startFrame);\
+        endPosture = pInputMotion->GetPosture(endFrame);\
+        if (startFrame > 0) {\
+            prevPosture = pInputMotion->GetPosture(startFrame - 1);\
+        }\
+        else\
+        {\
+            prevPosture = nullptr;\
+        }\
+        if (endFrame < inputLength - 1) {\
+            nextPosture = pInputMotion->GetPosture(endFrame + 1);\
+        }\
+        else {\
+            nextPosture = nullptr;\
+        }\
         Posture* startOutputPosture = pOutputMotion->GetPosture(startFrame);\
         Posture* endOutputPosture = pOutputMotion->GetPosture(endFrame);\
         startOutputPosture->propertyName_ = startPosture->propertyName_;\
